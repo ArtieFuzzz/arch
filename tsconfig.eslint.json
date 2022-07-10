@@ -1,0 +1,8 @@
+{
+  "extends": "@artiefuzzz/ts",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true
+  },
+  "include": ["src", "tests"]
+}
