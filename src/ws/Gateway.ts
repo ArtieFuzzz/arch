@@ -8,13 +8,15 @@ import { HeartBeat } from './HeartBeat'
 /**
  * @since 1.0.0
  * 
+ * Client used to talk to the Discord Gateway
+ * 
  * @params token Token used to identify to the Gateway
  */
 export class Gateway extends EventEmitter {
   #token: string
   #sessionId?: string
   public seq = 0
-  public gotHello = false
+  public connected = false
   private beat!: HeartBeat
   private socket!: WebSocket
   constructor(token: string) {
@@ -32,7 +34,7 @@ export class Gateway extends EventEmitter {
   }
 
   public send(data: unknown): void {
-    return this.socket.send(data)
+    return this.socket.send(JSON.stringify(data))
   }
 
   public async connect(): Promise<void> {
@@ -47,15 +49,16 @@ export class Gateway extends EventEmitter {
   /* @internal */
   private onOpen(): void {
     setTimeout(() => {
-      if (!this.gotHello) {
+      if (!this.connected) {
         // eslint-disable-next-line camelcase
         this.onMessage({ op: GatewayOpcodes.Hello, t: null, s: null, d: { heartbeat_interval: 10000 } })
       }
-    })
+    }, 10000)
   }
 
   /* @internal */
   private onMessage(data: GatewayReceivePayload): void {
+    console.log(data)
     if (data.s) {
       this.seq = data.s
     }
@@ -64,6 +67,8 @@ export class Gateway extends EventEmitter {
     // eslint-disable-next-line default-case
     switch (data.op) {
       case GatewayOpcodes.Hello: {
+        this.connected = true
+
         this.beat = new HeartBeat(() => { 
           this.send({ 
             op: GatewayOpcodes.Heartbeat, 
@@ -95,7 +100,7 @@ export class Gateway extends EventEmitter {
             }
           })
         }
-
+        
         return
       }
       case GatewayOpcodes.InvalidSession: {
@@ -170,7 +175,7 @@ export class Gateway extends EventEmitter {
       }
 
       if (reconnect) {
-        void this.reconnect()
+        return void this.reconnect()
       }
 
       this.emit('error', `Error Code: ${code}`)
