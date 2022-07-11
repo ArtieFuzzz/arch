@@ -7,15 +7,17 @@ import { clearInterval } from 'node:timers'
 export class HeartBeat {
   private handler: (...args: unknown[]) => void
   private timer: NodeJS.Timer
-  constructor(handler: (...args: unknown[]) => void) {
+  public interval: number
+  constructor(handler: (...args: unknown[]) => void, interval: number) {
+    this.interval = interval
     this.handler = handler
-    this.timer = setTimeout(() => this.ping(), 10000)
+    this.timer = setTimeout(() => this.ping(), this.interval)
   }
   
   public ping(): void {
     this.handler()
     clearInterval(this.timer)
-    this.timer = setTimeout(() => this.ping(), 10000)
+    this.timer = setTimeout(() => this.ping(), this.interval)
   }
 
   public close(): void {

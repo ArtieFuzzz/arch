@@ -89,11 +89,11 @@ export class Gateway extends EventEmitter {
     if (data.s) {
       this.seq = data.s
     }
-    
+
     // eslint-disable-next-line default-case
     switch (data.op) {
       case GatewayOpcodes.Hello: {
-        this.beat = new HeartBeat(() => this.send({ op: GatewayOpcodes.Heartbeat, d: this.seq }))
+        this.beat = new HeartBeat(() => this.send({ op: GatewayOpcodes.Heartbeat, d: this.seq }), data.d.heartbeat_interval)
 
         if (this.#sessionId) {
           this.send({
@@ -117,13 +117,13 @@ export class Gateway extends EventEmitter {
             }
           })
         }
-        
+
         return
       }
       case GatewayOpcodes.InvalidSession: {
         this.emit('warn', 'Gateway Session is Invalid... Reconnecting')
         this.reconnect()
-        
+
         return
       }
       case GatewayOpcodes.Reconnect: {
@@ -135,9 +135,9 @@ export class Gateway extends EventEmitter {
         if (data.t === GatewayDispatchEvents.Ready) {
           this.#sessionId = data.d.session_id
         }
-        
+
         this.emit(data.t, data.d)
-        
+
         return
       }
       case GatewayOpcodes.HeartbeatAck: {
@@ -156,7 +156,7 @@ export class Gateway extends EventEmitter {
     this.connect()
   }
 
-  
+
   public close(): void {
     this.socket.close()
     this.beat.close()
