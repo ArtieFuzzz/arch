@@ -1,4 +1,4 @@
-import { GatewayOpcodes, GatewayReceivePayload, GatewayVersion } from 'discord-api-types/gateway/v10'
+import { GatewayDispatchEvents, GatewayOpcodes, GatewayReceivePayload, GatewayVersion } from 'discord-api-types/gateway/v10'
 import EventEmitter from 'node:events'
 import * as os from 'node:os'
 import WebSocket from 'ws'
@@ -64,6 +64,19 @@ export class Gateway extends EventEmitter {
             }
           }
         })
+        
+        break
+      }
+
+      default: {
+        break
+      }
+    }
+
+    switch (data.t) {
+      case GatewayDispatchEvents.Ready: {
+        this.emit('ready', data.d)
+        
         break
       }
 
