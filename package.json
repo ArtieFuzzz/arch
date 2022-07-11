@@ -1,8 +1,8 @@
 {
   "packageManager": "yarn@3.2.1",
-  "name": "template",
+  "name": "@artiefuzzz/arch",
   "version": "1.0.0",
-  "description": "Replace this!",
+  "description": "A random Discord API Wrapper",
   "main": "build/index.js",
   "typings": "build/types/index.d.ts",
   "author": "Artie Fuzzz",
@@ -25,8 +25,10 @@
     "@commitlint/config-conventional": "17.0.3",
     "@commitlint/cz-commitlint": "17.0.3",
     "@types/node": "17.0.45",
+    "@types/ws": "^8",
     "ava": "4.3.1",
     "commitizen": "4.2.4",
+    "discord-api-types": "^0.36.1",
     "eslint": "8.19.0",
     "husky": "8.0.1",
     "inquirer": "8.2.4",
@@ -50,5 +52,9 @@
   },
   "lint-staged": {
     "./src/**/*.ts": "yarn lint:fix"
+  },
+  "dependencies": {
+    "@artiefuzzz/lynx": "^2.4.1",
+    "ws": "^8.8.0"
   }
 }
