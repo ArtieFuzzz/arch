@@ -11,13 +11,13 @@ export class HeartBeat {
   constructor(handler: (...args: unknown[]) => void, interval: number) {
     this.interval = interval
     this.handler = handler
-    this.timer = setTimeout(() => this.ping(), this.interval)
+    this.timer = setTimeout(() => this.ping(), this.interval * Math.random())
   }
   
   public ping(): void {
     this.handler()
     clearInterval(this.timer)
-    this.timer = setTimeout(() => this.ping(), this.interval)
+    this.timer = setTimeout(() => this.ping(), this.interval * Math.random())
   }
 
   public close(): void {
