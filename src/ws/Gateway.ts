@@ -23,7 +23,7 @@ export class Gateway extends EventEmitter {
     this.connect()
   }
 
-  private send(data: unknown): void {
+  public send(data: unknown): void {
     return this.socket.send(data)
   }
 
