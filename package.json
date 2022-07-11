@@ -1,7 +1,7 @@
 {
   "packageManager": "yarn@3.2.1",
   "name": "@artiefuzzz/arch",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "A random Discord API Wrapper",
   "main": "build/index.js",
   "typings": "build/types/index.d.ts",
@@ -69,5 +69,9 @@
   "bugs": {
     "url": "https://github.com/ArtieFuzzz/arch/issues"
   },
-  "keywords": ["discord", "wrapper", "api"]
+  "keywords": [
+    "discord",
+    "wrapper",
+    "api"
+  ]
 }
