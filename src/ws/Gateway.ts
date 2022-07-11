@@ -37,7 +37,7 @@ export class Gateway extends EventEmitter {
     setTimeout(() => {
       if (!this.gotHello) {
         // eslint-disable-next-line camelcase
-        this.onMessage({ op: GatewayOpcodes.Hello, t: null, s: null, d: { heartbeat_interval: 2505 } })
+        this.onMessage({ op: GatewayOpcodes.Hello, t: null, s: null, d: { heartbeat_interval: 10000 } })
       }
     })
   }
