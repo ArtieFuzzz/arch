@@ -1,3 +1,4 @@
+import { request } from '@artiefuzzz/lynx'
 import { GatewayCloseCodes, GatewayDispatchEvents, GatewayOpcodes, GatewayPresenceUpdateData, GatewayReceivePayload, GatewayVersion } from 'discord-api-types/gateway/v10'
 import EventEmitter from 'node:events'
 import * as os from 'node:os'
@@ -20,7 +21,7 @@ export class Gateway extends EventEmitter {
     super()
 
     this.#token = token
-    this.connect()
+    void this.connect()
   }
 
   public setPresence(data: GatewayPresenceUpdateData): void {
@@ -34,8 +35,9 @@ export class Gateway extends EventEmitter {
     return this.socket.send(data)
   }
 
-  public connect(): void {
-    this.socket = new WebSocket(this.gateway)
+  public async connect(): Promise<void> {
+    const url = await this.gateway()
+    this.socket = new WebSocket(url)
 
     this.socket.onopen = (): void => this.onOpen()
     this.socket.onclose = ({ code }): void => this.onClose(code)
@@ -98,12 +100,12 @@ export class Gateway extends EventEmitter {
       }
       case GatewayOpcodes.InvalidSession: {
         this.emit('warn', 'Gateway Session is Invalid... Reconnecting')
-        this.reconnect()
+        void this.reconnect()
 
         return
       }
       case GatewayOpcodes.Reconnect: {
-        this.reconnect()
+        void this.reconnect()
 
         return
       }
@@ -168,7 +170,7 @@ export class Gateway extends EventEmitter {
       }
 
       if (reconnect) {
-        this.reconnect()
+        void this.reconnect()
       }
 
       this.emit('error', `Error Code: ${code}`)
@@ -178,9 +180,9 @@ export class Gateway extends EventEmitter {
   /**
    * Reconnect to the gateway
    */
-  public reconnect(): void {
+  public async reconnect(): Promise<void> {
     this.close()
-    this.connect()
+    await this.connect()
   }
 
   /**
@@ -194,7 +196,12 @@ export class Gateway extends EventEmitter {
   /**
    * Gateway URL
    */
-  public get gateway(): string {
-    return `https://discord.com/api/gateway?v=${GatewayVersion}&encoding=json`
+  public async gateway(): Promise<string> {
+    const req = await request<{ url: string }>(`https://discord.com/api/gateway?v=${GatewayVersion}&encoding=json`)
+      .send()
+    
+    const { url } = req.json
+
+    return url
   }
 }
