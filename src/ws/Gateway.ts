@@ -44,47 +44,6 @@ export class Gateway extends EventEmitter {
     })
   }
 
-  private onClose(code: number): void {
-    if (code >= 4000 && code <= 4999) {
-      let reconnect = false
-      switch (code) {
-        case GatewayCloseCodes.UnknownError:
-          console.error('WebSocket closed by Discord. We\'re not sure what went wrong.')
-          reconnect = true
-          break
-        case GatewayCloseCodes.UnknownOpcode:
-        case GatewayCloseCodes.DecodeError:
-        case GatewayCloseCodes.NotAuthenticated:
-        case GatewayCloseCodes.AlreadyAuthenticated:
-          reconnect = true
-          break
-        case GatewayCloseCodes.InvalidAPIVersion:
-        case GatewayCloseCodes.InvalidIntents:
-        case GatewayCloseCodes.InvalidShard:
-        case GatewayCloseCodes.AuthenticationFailed:
-        case GatewayCloseCodes.ShardingRequired:
-        case GatewayCloseCodes.DisallowedIntents:
-          break
-        case GatewayCloseCodes.SessionTimedOut:
-          console.error('WebSocket closed by Discord. Attempting to reconnect...')
-          reconnect = true
-          break
-        case GatewayCloseCodes.InvalidSeq:
-          this.#sessionId = undefined
-          reconnect = true
-          break
-        default:
-          break
-      }
-
-      if (reconnect) {
-        this.reconnect()
-      }
-
-      this.emit('error', `Error Code: ${code}`)
-    }
-  }
-
   private onMessage(data: GatewayReceivePayload): void {
     if (data.s) {
       this.seq = data.s
@@ -151,6 +110,47 @@ export class Gateway extends EventEmitter {
     }
   }
 
+  private onClose(code: number): void {
+    if (code >= 4000 && code <= 4999) {
+      let reconnect = false
+      switch (code) {
+        case GatewayCloseCodes.UnknownError:
+          console.error('WebSocket closed by Discord. We\'re not sure what went wrong.')
+          reconnect = true
+          break
+        case GatewayCloseCodes.UnknownOpcode:
+        case GatewayCloseCodes.DecodeError:
+        case GatewayCloseCodes.NotAuthenticated:
+        case GatewayCloseCodes.AlreadyAuthenticated:
+          reconnect = true
+          break
+        case GatewayCloseCodes.InvalidAPIVersion:
+        case GatewayCloseCodes.InvalidIntents:
+        case GatewayCloseCodes.InvalidShard:
+        case GatewayCloseCodes.AuthenticationFailed:
+        case GatewayCloseCodes.ShardingRequired:
+        case GatewayCloseCodes.DisallowedIntents:
+          break
+        case GatewayCloseCodes.SessionTimedOut:
+          console.error('WebSocket closed by Discord. Attempting to reconnect...')
+          reconnect = true
+          break
+        case GatewayCloseCodes.InvalidSeq:
+          this.#sessionId = undefined
+          reconnect = true
+          break
+        default:
+          break
+      }
+
+      if (reconnect) {
+        this.reconnect()
+      }
+
+      this.emit('error', `Error Code: ${code}`)
+    }
+  }
+
   public reconnect(): void {
     this.close()
     this.connect()
@@ -162,7 +162,7 @@ export class Gateway extends EventEmitter {
     this.beat.close()
   }
 
-  private get gateway(): string {
+  public get gateway(): string {
     return `https://discord.com/api/gateway?v=${GatewayVersion}&encoding=json`
   }
 }
