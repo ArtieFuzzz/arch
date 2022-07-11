@@ -22,6 +22,9 @@
     "postpack": "pinst --enable",
     "commit": "git-cz"
   },
+  "peerDependencies": {
+    "discord-api-types": "latest"
+  },
   "dependencies": {
     "@artiefuzzz/lynx": "^2.4.1",
     "ws": "^8.8.0"
