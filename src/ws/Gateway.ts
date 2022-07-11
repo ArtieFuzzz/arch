@@ -1,4 +1,4 @@
-import { GatewayDispatchEvents, GatewayOpcodes, GatewayReceivePayload, GatewayVersion } from 'discord-api-types/gateway/v10'
+import { GatewayCloseCodes, GatewayDispatchEvents, GatewayOpcodes, GatewayReceivePayload, GatewayVersion } from 'discord-api-types/gateway/v10'
 import EventEmitter from 'node:events'
 import * as os from 'node:os'
 import WebSocket from 'ws'
@@ -11,7 +11,9 @@ import { HeartBeat } from './HeartBeat'
  */
 export class Gateway extends EventEmitter {
   #token: string
-  gotHello = false
+  #sessionId?: string
+  public seq = 0
+  public gotHello = false
   private beat!: HeartBeat
   private socket!: WebSocket
   constructor(token: string) {
@@ -29,7 +31,7 @@ export class Gateway extends EventEmitter {
     this.socket = new WebSocket(this.gateway)
 
     this.socket.onopen = (): void => this.onOpen()
-    this.socket.onclose = (): void => this.onClose()
+    this.socket.onclose = ({ code }): void => this.onClose(code)
     this.socket.onmessage = ({ data }): void => this.onMessage(data as unknown as GatewayReceivePayload)
   }
 
@@ -42,48 +44,122 @@ export class Gateway extends EventEmitter {
     })
   }
 
-  private onClose(): void {
-    this.socket.close()
-    this.beat.close()
+  private onClose(code: number): void {
+    if (code >= 4000 && code <= 4999) {
+      let reconnect = false
+      switch (code) {
+        case GatewayCloseCodes.UnknownError:
+          console.error('WebSocket closed by Discord. We\'re not sure what went wrong.')
+          reconnect = true
+          break
+        case GatewayCloseCodes.UnknownOpcode:
+        case GatewayCloseCodes.DecodeError:
+        case GatewayCloseCodes.NotAuthenticated:
+        case GatewayCloseCodes.AlreadyAuthenticated:
+          reconnect = true
+          break
+        case GatewayCloseCodes.InvalidAPIVersion:
+        case GatewayCloseCodes.InvalidIntents:
+        case GatewayCloseCodes.InvalidShard:
+        case GatewayCloseCodes.AuthenticationFailed:
+        case GatewayCloseCodes.ShardingRequired:
+        case GatewayCloseCodes.DisallowedIntents:
+          break
+        case GatewayCloseCodes.SessionTimedOut:
+          console.error('WebSocket closed by Discord. Attempting to reconnect...')
+          reconnect = true
+          break
+        case GatewayCloseCodes.InvalidSeq:
+          this.#sessionId = undefined
+          reconnect = true
+          break
+        default:
+          break
+      }
+
+      if (reconnect) {
+        this.reconnect()
+      }
+
+      this.emit('error', `Error Code: ${code}`)
+    }
   }
 
   private onMessage(data: GatewayReceivePayload): void {
+    if (data.s) {
+      this.seq = data.s
+    }
+    
+    // eslint-disable-next-line default-case
     switch (data.op) {
       case GatewayOpcodes.Hello: {
-        this.beat = new HeartBeat(this.socket)
+        this.beat = new HeartBeat(() => this.send({ op: GatewayOpcodes.Heartbeat, d: this.seq }))
 
-        this.send({
-          op: GatewayOpcodes.Identify,
-          d: {
-            token: this.#token,
-            intents: 513,
-            properties: {
-              os: os.platform(),
-              browser: 'Arch Wrapper',
-              device: 'Arch Wrapper'
+        if (this.#sessionId) {
+          this.send({
+            seq: this.seq,
+            op: GatewayOpcodes.Reconnect,
+            d: {
+              token: this.#token,
             }
-          }
-        })
+          })
+        } else {
+          this.send({
+            op: GatewayOpcodes.Identify,
+            d: {
+              token: this.#token,
+              intents: 513,
+              properties: {
+                os: os.platform(),
+                browser: 'Arch Wrapper',
+                device: 'Arch Wrapper'
+              }
+            }
+          })
+        }
         
-        break
+        return
       }
+      case GatewayOpcodes.InvalidSession: {
+        this.emit('warn', 'Gateway Session is Invalid... Reconnecting')
+        this.reconnect()
+        
+        return
+      }
+      case GatewayOpcodes.Reconnect: {
+        this.reconnect()
 
-      default: {
-        break
+        return
+      }
+      case GatewayOpcodes.Dispatch: {
+        if (data.t === GatewayDispatchEvents.Ready) {
+          this.#sessionId = data.d.session_id
+        }
+        
+        this.emit(data.t, data.d)
+        
+        return
+      }
+      case GatewayOpcodes.HeartbeatAck: {
+        this.emit('ack', true)
+
+        return
+      }
+      case GatewayOpcodes.Heartbeat: {
+        return this.beat.ping()
       }
     }
+  }
 
-    switch (data.t) {
-      case GatewayDispatchEvents.Ready: {
-        this.emit('ready', data.d)
-        
-        break
-      }
+  public reconnect(): void {
+    this.close()
+    this.connect()
+  }
 
-      default: {
-        break
-      }
-    }
+  
+  public close(): void {
+    this.socket.close()
+    this.beat.close()
   }
 
   private get gateway(): string {
