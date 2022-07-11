@@ -1,4 +1,4 @@
-import { GatewayCloseCodes, GatewayDispatchEvents, GatewayOpcodes, GatewayReceivePayload, GatewayVersion } from 'discord-api-types/gateway/v10'
+import { GatewayCloseCodes, GatewayDispatchEvents, GatewayOpcodes, GatewayPresenceUpdateData, GatewayReceivePayload, GatewayVersion } from 'discord-api-types/gateway/v10'
 import EventEmitter from 'node:events'
 import * as os from 'node:os'
 import WebSocket from 'ws'
@@ -21,6 +21,14 @@ export class Gateway extends EventEmitter {
 
     this.#token = token
     this.connect()
+  }
+
+  public setPresence(data: GatewayPresenceUpdateData): void {
+    this.send({
+      op: GatewayOpcodes.PresenceUpdate,
+      d: data
+    })
+
   }
 
   public send(data: unknown): void {
