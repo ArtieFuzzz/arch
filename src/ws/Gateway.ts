@@ -28,7 +28,6 @@ export class Gateway extends EventEmitter {
       op: GatewayOpcodes.PresenceUpdate,
       d: data
     })
-
   }
 
   public send(data: unknown): void {
@@ -43,6 +42,7 @@ export class Gateway extends EventEmitter {
     this.socket.onmessage = ({ data }): void => this.onMessage(data as unknown as GatewayReceivePayload)
   }
 
+  /* @internal */
   private onOpen(): void {
     setTimeout(() => {
       if (!this.gotHello) {
@@ -52,6 +52,7 @@ export class Gateway extends EventEmitter {
     })
   }
 
+  /* @internal */
   private onMessage(data: GatewayReceivePayload): void {
     if (data.s) {
       this.seq = data.s
@@ -126,6 +127,7 @@ export class Gateway extends EventEmitter {
     }
   }
 
+  /* @internal */
   private onClose(code: number): void {
     if (code >= 4000 && code <= 4999) {
       let reconnect = false
@@ -173,17 +175,25 @@ export class Gateway extends EventEmitter {
     }
   }
 
+  /**
+   * Reconnect to the gateway
+   */
   public reconnect(): void {
     this.close()
     this.connect()
   }
 
-
+  /**
+   * Stops the Socket and Heartbeater
+   */
   public close(): void {
     this.socket.close()
     this.beat.close()
   }
 
+  /**
+   * Gateway URL
+   */
   public get gateway(): string {
     return `https://discord.com/api/gateway?v=${GatewayVersion}&encoding=json`
   }
