@@ -49,10 +49,16 @@ export class Gateway extends EventEmitter {
       this.seq = data.s
     }
 
+    /* eslint-disable  camelcase */
     // eslint-disable-next-line default-case
     switch (data.op) {
       case GatewayOpcodes.Hello: {
-        this.beat = new HeartBeat(() => this.send({ op: GatewayOpcodes.Heartbeat, d: this.seq }), data.d.heartbeat_interval)
+        this.beat = new HeartBeat(() => { 
+          this.send({ 
+            op: GatewayOpcodes.Heartbeat, 
+            d: this.seq 
+          })
+        }, data.d.heartbeat_interval)
 
         if (this.#sessionId) {
           this.send({
@@ -60,6 +66,8 @@ export class Gateway extends EventEmitter {
             op: GatewayOpcodes.Reconnect,
             d: {
               token: this.#token,
+              seq: this.seq,
+              session_id: this.#sessionId
             }
           })
         } else {
@@ -113,34 +121,40 @@ export class Gateway extends EventEmitter {
   private onClose(code: number): void {
     if (code >= 4000 && code <= 4999) {
       let reconnect = false
+
       switch (code) {
         case GatewayCloseCodes.UnknownError:
-          console.error('WebSocket closed by Discord. We\'re not sure what went wrong.')
+          this.emit('error', 'Discord Closed the WebSocket, We have no clue why!')
           reconnect = true
           break
         case GatewayCloseCodes.UnknownOpcode:
         case GatewayCloseCodes.DecodeError:
         case GatewayCloseCodes.NotAuthenticated:
-        case GatewayCloseCodes.AlreadyAuthenticated:
+        case GatewayCloseCodes.AlreadyAuthenticated: {
           reconnect = true
           break
+        }
         case GatewayCloseCodes.InvalidAPIVersion:
         case GatewayCloseCodes.InvalidIntents:
         case GatewayCloseCodes.InvalidShard:
         case GatewayCloseCodes.AuthenticationFailed:
         case GatewayCloseCodes.ShardingRequired:
-        case GatewayCloseCodes.DisallowedIntents:
+        case GatewayCloseCodes.DisallowedIntents: {
           break
-        case GatewayCloseCodes.SessionTimedOut:
-          console.error('WebSocket closed by Discord. Attempting to reconnect...')
+        }
+        case GatewayCloseCodes.SessionTimedOut: {
+          this.emit('error', 'The WebSocket was closed by Discord, Reconnecting...')
           reconnect = true
           break
-        case GatewayCloseCodes.InvalidSeq:
+        }
+        case GatewayCloseCodes.InvalidSeq: {
           this.#sessionId = undefined
           reconnect = true
           break
-        default:
+        }
+        default: {
           break
+        }
       }
 
       if (reconnect) {
