@@ -78,8 +78,8 @@ export class Gateway extends EventEmitter {
               intents: 513,
               properties: {
                 os: os.platform(),
-                browser: 'Arch Wrapper',
-                device: 'Arch Wrapper'
+                browser: 'arch',
+                device: 'arch'
               }
             }
           })
