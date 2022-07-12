@@ -1,4 +1,5 @@
 import { request } from '@artiefuzzz/lynx'
+import { AsyncQueue } from '@sapphire/async-queue'
 import { GatewayCloseCodes, GatewayDispatchEvents, GatewayOpcodes, GatewayPresenceUpdateData, GatewayReceivePayload, GatewayVersion } from 'discord-api-types/gateway/v10'
 import EventEmitter from 'node:events'
 import * as os from 'node:os'
@@ -19,6 +20,7 @@ export class Gateway extends EventEmitter {
   public connected = false
   private beat!: HeartBeat
   private socket!: WebSocket
+  private queue = new AsyncQueue()
   constructor(token: string) {
     super()
 
@@ -26,15 +28,16 @@ export class Gateway extends EventEmitter {
     void this.connect()
   }
 
-  public setPresence(data: GatewayPresenceUpdateData): void {
-    this.send({
+  public async setPresence(data: GatewayPresenceUpdateData): Promise<void> {
+    await this.send({
       op: GatewayOpcodes.PresenceUpdate,
       d: data
     })
   }
 
-  public send(data: unknown): void {
+  public async send(data: unknown): Promise<void> {
     if (this.connected) {
+      await this.queue.wait()
       return this.socket.send(JSON.stringify(data))
     }
 
@@ -47,21 +50,21 @@ export class Gateway extends EventEmitter {
 
     this.socket.onopen = (): void => this.onOpen()
     this.socket.onclose = ({ code }): void => this.onClose(code)
-    this.socket.onmessage = ({ data }): void => this.onMessage(data as unknown as GatewayReceivePayload)
+    this.socket.onmessage = async ({ data }): Promise<void> => await this.onMessage(data as unknown as GatewayReceivePayload)
   }
 
   /* @internal */
   private onOpen(): void {
-    setTimeout(() => {
+    setTimeout(async () => {
       if (!this.connected) {
         // eslint-disable-next-line camelcase
-        this.onMessage({ op: GatewayOpcodes.Hello, t: null, s: null, d: { heartbeat_interval: 10000 } })
+        await this.onMessage({ op: GatewayOpcodes.Hello, t: null, s: null, d: { heartbeat_interval: 10000 } })
       }
     }, 10000)
   }
 
   /* @internal */
-  private onMessage(data: GatewayReceivePayload): void {
+  private async onMessage(data: GatewayReceivePayload): Promise<void> {
     if (data.s) {
       this.seq = data.s
     }
@@ -72,15 +75,15 @@ export class Gateway extends EventEmitter {
       case GatewayOpcodes.Hello: {
         this.connected = true
 
-        this.beat = new HeartBeat(() => {
-          this.send({
+        this.beat = new HeartBeat(async () => {
+          await this.send({
             op: GatewayOpcodes.Heartbeat,
             d: this.seq
           })
         }, data.d.heartbeat_interval)
 
         if (this.#sessionId) {
-          this.send({
+          await this.send({
             seq: this.seq,
             op: GatewayOpcodes.Reconnect,
             d: {
@@ -90,7 +93,7 @@ export class Gateway extends EventEmitter {
             }
           })
         } else {
-          this.send({
+          await this.send({
             op: GatewayOpcodes.Identify,
             d: {
               token: this.#token,

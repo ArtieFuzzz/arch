@@ -1,7 +1,7 @@
 {
   "packageManager": "yarn@3.2.1",
   "name": "@artiefuzzz/arch",
-  "version": "1.6.3",
+  "version": "1.7.3",
   "description": "A random Discord API Wrapper",
   "main": "build/index.js",
   "typings": "build/types/index.d.ts",
