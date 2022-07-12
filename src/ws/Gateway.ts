@@ -34,7 +34,11 @@ export class Gateway extends EventEmitter {
   }
 
   public send(data: unknown): void {
-    return this.socket.send(JSON.stringify(data))
+    if (this.connected) {
+      return this.socket.send(JSON.stringify(data))
+    }
+
+    throw Error('Not Connected to the Discord Gateway')
   }
 
   public async connect(): Promise<void> {
@@ -58,7 +62,6 @@ export class Gateway extends EventEmitter {
 
   /* @internal */
   private onMessage(data: GatewayReceivePayload): void {
-    console.log(data)
     if (data.s) {
       this.seq = data.s
     }
@@ -69,10 +72,10 @@ export class Gateway extends EventEmitter {
       case GatewayOpcodes.Hello: {
         this.connected = true
 
-        this.beat = new HeartBeat(() => { 
-          this.send({ 
-            op: GatewayOpcodes.Heartbeat, 
-            d: this.seq 
+        this.beat = new HeartBeat(() => {
+          this.send({
+            op: GatewayOpcodes.Heartbeat,
+            d: this.seq
           })
         }, data.d.heartbeat_interval)
 
@@ -100,7 +103,7 @@ export class Gateway extends EventEmitter {
             }
           })
         }
-        
+
         return
       }
       case GatewayOpcodes.InvalidSession: {
@@ -202,9 +205,10 @@ export class Gateway extends EventEmitter {
    * Gateway URL
    */
   public async gateway(): Promise<string> {
+    // * @todo Use ETF instead of JSON
     const req = await request<{ url: string }>(`https://discord.com/api/gateway?v=${GatewayVersion}&encoding=json`)
       .send()
-    
+
     const { url } = req.json
 
     return url
