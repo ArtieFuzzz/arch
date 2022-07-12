@@ -1,6 +1,7 @@
 import { request } from '@artiefuzzz/lynx'
 import { AsyncQueue } from '@sapphire/async-queue'
 import { GatewayCloseCodes, GatewayDispatchEvents, GatewayOpcodes, GatewayPresenceUpdateData, GatewayReceivePayload, GatewayVersion } from 'discord-api-types/gateway/v10'
+import * as erlpack from 'erlpack'
 import EventEmitter from 'node:events'
 import * as os from 'node:os'
 import WebSocket from 'ws'
@@ -38,7 +39,7 @@ export class Gateway extends EventEmitter {
   public async send(data: unknown): Promise<void> {
     if (this.connected) {
       await this.queue.wait()
-      return this.socket.send(JSON.stringify(data))
+      return this.socket.send(erlpack.pack(data))
     }
 
     throw Error('Not Connected to the Discord Gateway')
@@ -48,19 +49,22 @@ export class Gateway extends EventEmitter {
     const url = await this.gateway()
     this.socket = new WebSocket(url)
 
-    this.socket.onopen = (): void => this.onOpen()
     this.socket.onclose = ({ code }): void => this.onClose(code)
-    this.socket.onmessage = async ({ data }): Promise<void> => await this.onMessage(data as unknown as GatewayReceivePayload)
+    this.socket.onmessage = async (data): Promise<void> => await this.onPacket(data as unknown as Uint8Array)
   }
 
-  /* @internal */
-  private onOpen(): void {
-    setTimeout(async () => {
-      if (!this.connected) {
-        // eslint-disable-next-line camelcase
-        await this.onMessage({ op: GatewayOpcodes.Hello, t: null, s: null, d: { heartbeat_interval: 10000 } })
-      }
-    }, 10000)
+  private async onPacket(packet: Uint8Array): Promise<void> {
+    let data: GatewayReceivePayload
+
+    try {
+      data = erlpack.unpack(packet as Buffer)
+    } catch(err) {
+      this.emit('error', err)
+
+      return
+    }
+
+    return await this.onMessage(data)
   }
 
   /* @internal */
@@ -208,8 +212,7 @@ export class Gateway extends EventEmitter {
    * Gateway URL
    */
   public async gateway(): Promise<string> {
-    // * @todo Use ETF instead of JSON
-    const req = await request<{ url: string }>(`https://discord.com/api/gateway?v=${GatewayVersion}&encoding=json`)
+    const req = await request<{ url: string }>(`https://discord.com/api/gateway?v=${GatewayVersion}&encoding=etf`)
       .send()
 
     const { url } = req.json
