@@ -1,4 +1,3 @@
-import { request } from '@artiefuzzz/lynx'
 import { AsyncQueue } from '@sapphire/async-queue'
 import { GatewayCloseCodes, GatewayDispatchEvents, GatewayOpcodes, GatewayPresenceUpdateData, GatewayReceivePayload, GatewayVersion } from 'discord-api-types/gateway/v10'
 import * as erlpack from 'erlpack'
@@ -18,7 +17,6 @@ export class Gateway extends EventEmitter {
   #token: string
   #sessionId?: string
   public seq = 0
-  public connected = false
   private beat!: HeartBeat
   private socket!: WebSocket
   private queue = new AsyncQueue()
@@ -37,25 +35,30 @@ export class Gateway extends EventEmitter {
   }
 
   public async send(data: unknown): Promise<void> {
-    if (this.connected) {
-      await this.queue.wait()
+    await this.queue.wait()
+    
+    try {
       return this.socket.send(erlpack.pack(data))
+    } finally {
+      this.queue.shift()
     }
-
-    throw Error('Not Connected to the Discord Gateway')
   }
 
-  public async connect(): Promise<void> {
-    const url = await this.gateway()
+  public connect(): void {
+    const url = this.gateway
     this.socket = new WebSocket(url)
 
-    this.socket.onclose = ({ code }): void => this.onClose(code)
-    this.socket.onmessage = async (data): Promise<void> => await this.onPacket(data as unknown as Uint8Array)
+    this.socket.on('close', (code) => this.onClose(code))
+    this.socket.on('message', async (data) => {
+      if (this.socket.readyState === this.socket.OPEN) {
+        await this.onPacket(data as unknown as Uint8Array)
+      }
+    })
   }
 
   private async onPacket(packet: Uint8Array): Promise<void> {
     let data: GatewayReceivePayload
-
+    
     try {
       data = erlpack.unpack(packet as Buffer)
     } catch(err) {
@@ -77,15 +80,6 @@ export class Gateway extends EventEmitter {
     // eslint-disable-next-line default-case
     switch (data.op) {
       case GatewayOpcodes.Hello: {
-        this.connected = true
-
-        this.beat = new HeartBeat(async () => {
-          await this.send({
-            op: GatewayOpcodes.Heartbeat,
-            d: this.seq
-          })
-        }, data.d.heartbeat_interval)
-
         if (this.#sessionId) {
           await this.send({
             seq: this.seq,
@@ -110,6 +104,13 @@ export class Gateway extends EventEmitter {
             }
           })
         }
+
+        this.beat = new HeartBeat(async () => {
+          await this.send({
+            op: GatewayOpcodes.Heartbeat,
+            d: this.seq
+          })
+        }, data.d.heartbeat_interval)
 
         return
       }
@@ -211,12 +212,7 @@ export class Gateway extends EventEmitter {
   /**
    * Gateway URL
    */
-  public async gateway(): Promise<string> {
-    const req = await request<{ url: string }>(`https://discord.com/api/gateway?v=${GatewayVersion}&encoding=etf`)
-      .send()
-
-    const { url } = req.json
-
-    return url
+  public get gateway(): string {
+    return `wss://gateway.discord.gg/?v=${GatewayVersion}&encoding=etf`
   }
 }
